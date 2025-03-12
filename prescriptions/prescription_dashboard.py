@@ -8,7 +8,7 @@ import plotly.express as px
 # Load multiple CSV files from data/prescriptions/
 st.title("📊 NHS Dec 2024 Prescription Data Dashboard")
 
-data_files = glob.glob("data/prescription_*.csv")
+data_files = glob.glob("prescription_*.csv")
 
 if not data_files:
     st.error("No data files found")
