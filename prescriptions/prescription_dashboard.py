@@ -32,23 +32,27 @@ st.write(df.head())
 if "BNF_SECTION_CODE" in df.columns:
     st.subheader("📌 Filter Data by BNF Section")
 
-    unique_sections = df["BNF_SECTION_CODE"].dropna().unique()
-    section_mapping = {str(int(code)): f"Section {int(code)}" for code in unique_sections}
+    # Create a mapping from BNF_SECTION_CODE to BNF_SECTION
+    section_mapping = {str(int(code)): f"{int(code)} - {section}" for code, section in zip(df["BNF_SECTION_CODE"].dropna().unique(), df["BNF_SECTION"].dropna().unique())}
 
     section_choice = st.selectbox("Select BNF Section:", ["All"] + list(section_mapping.values()))
 
-    df_filtered = df[df["BNF_SECTION_CODE"] == int([k for k, v in section_mapping.items() if v == section_choice][0])] if section_choice != "All" else df
+    # Filter the dataframe based on the selected BNF Section
+    if section_choice != "All":
+        section_code = str(int([k for k, v in section_mapping.items() if v == section_choice][0]))  # Extract corresponding BNF_SECTION_CODE
+        df_filtered = df[df["BNF_SECTION_CODE"] == section_code]
+    else:
+        df_filtered = df
 
     st.subheader("📄 Filtered Data")
     st.write(df_filtered.head())
 
     st.download_button("📥 Download Filtered Data", data=df_filtered.to_csv(index=False), file_name="filtered_nhs_data.csv", mime="text/csv")
-
 # 🌍 Top 10 Regions by Prescriptions
 if "REGION_NAME" in df_filtered.columns:
     st.subheader("🌍 Top 10 Regions with Most Prescriptions")
     top_regions = df_filtered.groupby("REGION_NAME").agg({"NIC": "sum", "ITEMS": "sum"}).nlargest(10, "ITEMS").reset_index()
-    top_regions.rename(columns={"NIC": "Net Ingredient Cost", "ITEMS": "Number Of Prescription Items Dispensed"}, inplace=True)
+    top_regions.rename(columns={"NIC": "Net Ingredient Cost (£)", "ITEMS": "Number Of Prescription Items Dispensed"}, inplace=True)
 
     st.write(top_regions)
 
@@ -63,16 +67,16 @@ if "REGION_NAME" in df_filtered.columns:
 if "BNF_CHEMICAL_SUBSTANCE" in df_filtered.columns and "NIC" in df_filtered.columns and "ITEMS" in df_filtered.columns:
     st.subheader("📊 Grouped Data by BNF Chemical Substance")
     grouped_data = df_filtered.groupby("BNF_CHEMICAL_SUBSTANCE").agg({"NIC": "sum", "ITEMS": "sum"}).reset_index()
-    grouped_data.rename(columns={"NIC": "Net Ingredient Cost", "ITEMS": "Number Of Prescription Items Dispensed"}, inplace=True)
+    grouped_data.rename(columns={"NIC": "Net Ingredient Cost (£)", "ITEMS": "Number Of Prescription Items Dispensed"}, inplace=True)
 
     st.write(grouped_data)
 
     # 💊 Top 10 Drugs by Cost
     st.subheader("💊 Top 10 Most Prescribed Drugs by Cost")
-    top_drugs = grouped_data.nlargest(10, "Net Ingredient Cost")
+    top_drugs = grouped_data.nlargest(10, "Net Ingredient Cost (£)")
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    sns.barplot(x=top_drugs["Net Ingredient Cost"], y=top_drugs["BNF_CHEMICAL_SUBSTANCE"], palette="Blues_r", ax=ax)
+    sns.barplot(x=top_drugs["Net Ingredient Cost (£)"], y=top_drugs["BNF_CHEMICAL_SUBSTANCE"], palette="Blues_r", ax=ax)
     ax.set_xlabel("Total NIC (£)")
     ax.set_ylabel("Drug Name")
     ax.set_title("Top 10 Most Prescribed Drugs by NIC")
