@@ -4,19 +4,31 @@ import glob
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
+import os  # Added for debugging
 
 # Load multiple CSV files from data/prescriptions/
 st.title("📊 NHS Dec 2024 Prescription Data Dashboard")
 
+# Debugging: Show current directory & files
+st.subheader("🛠 Debugging Info")
+# st.write("📂 Current Directory:", os.getcwd())
+# st.write("📂 Files in Directory:", os.listdir())
+
+# Try reading files
 data_files = glob.glob("prescription_*.csv")
+st.write("🔍 Found CSV Files:", data_files)  # Debugging output
 
 if not data_files:
-    st.error("No data files found")
+    st.error("🚨 No data files found! Please check your directory.")
 else:
     # Load and merge all CSV files
-    df_list = [pd.read_csv(file) for file in data_files]
-    df = pd.concat(df_list, ignore_index=True)
-    # Drop YEAR_MONTH as it's not needed
+    try:
+        df_list = [pd.read_csv(file) for file in data_files]
+        df = pd.concat(df_list, ignore_index=True)
+    except Exception as e:
+        st.error(f"❌ Error reading CSV files: {e}")
+
+    # Drop YEAR_MONTH if exists
     if "YEAR_MONTH" in df.columns:
         df.drop(columns=["YEAR_MONTH"], inplace=True)
 
@@ -24,7 +36,7 @@ else:
     st.subheader("🔍 Data Preview")
     st.write(df.head())
 
-    # Ensure the column exists
+    # Ensure "BNF_SECTION_CODE" exists before filtering
     if "BNF_SECTION_CODE" in df.columns:
         st.subheader("📌 Filter Data by BNF Section")
 
@@ -136,30 +148,27 @@ else:
 
             st.plotly_chart(fig)
         
+        # 🥧 Prescription Distribution by Unit of Measure (UOM)
+        st.subheader("📦 Prescription Distribution by Unit of Measure")
 
-            # 🥧 Prescription Distribution by Unit of Measure (UOM)
-            st.subheader("📦 Prescription Distribution by Unit of Measure")
+        if "UNIT_OF_MEASURE" in df_filtered.columns and "ITEMS" in df_filtered.columns:
+            # Aggregate total items dispensed per UOM
+            uom_distribution = df_filtered.groupby("UNIT_OF_MEASURE")["ITEMS"].sum().reset_index()
 
-            if "UNIT_OF_MEASURE" in df_filtered.columns and "ITEMS" in df_filtered.columns:
-                # Aggregate total items dispensed per UOM
-                uom_distribution = df_filtered.groupby("UNIT_OF_MEASURE")["ITEMS"].sum().reset_index()
+            # Get Top 10 UOMs by Items Dispensed
+            top_uoms = uom_distribution.nlargest(10, "ITEMS")
 
-                # Get Top 10 UOMs by Items Dispensed
-                top_uoms = uom_distribution.nlargest(10, "ITEMS")
+            # Rename columns for clarity
+            top_uoms.rename(columns={"UNIT_OF_MEASURE": "Unit of Measure", "ITEMS": "Total Items Dispensed"}, inplace=True)
 
-                # Rename columns for clarity
-                top_uoms.rename(columns={"UNIT_OF_MEASURE": "Unit of Measure", "ITEMS": "Total Items Dispensed"}, inplace=True)
+            # Create Pie Chart
+            fig = px.pie(
+                top_uoms,
+                values="Total Items Dispensed",
+                names="Unit of Measure",
+                title="Top 10 Units of Measure by Items Dispensed",
+                hole=0.3,  # Donut style
+                color_discrete_sequence=px.colors.qualitative.Pastel
+            )
 
-                # Create Pie Chart
-                fig = px.pie(
-                    top_uoms,
-                    values="Total Items Dispensed",
-                    names="Unit of Measure",
-                    title="Top 10 Units of Measure by Items Dispensed",
-                    hole=0.3,  # Donut style
-                    color_discrete_sequence=px.colors.qualitative.Pastel
-                )
-
-                st.plotly_chart(fig)
-
-
+            st.plotly_chart(fig)
