@@ -7,15 +7,18 @@ import plotly.express as px
 # 📊 NHS Prescription Data Dashboard
 st.title("📊 NHS Dec 2024 Prescription Data Dashboard")
 
-# 🔹 Manual File Upload
-uploaded_file = st.file_uploader("📂 Upload a CSV File", type="csv")
-if uploaded_file is None:
-    st.warning("🚨 Please upload a CSV file to proceed.")
-    st.stop()
+# 🔹 Load Data from GitHub
+CSV_URL = "https://raw.githubusercontent.com/aljonleynes11/nhs-trial/main/prescriptions/prescription_cardio_and_diabetes_final.csv"
 
-# ✅ Load Data
-df = pd.read_csv(uploaded_file)
-st.success("✅ File uploaded successfully!")
+@st.cache_data
+def load_data(url):
+    return pd.read_csv(url)
+
+# Load dataset
+st.session_state.df = load_data(CSV_URL)
+st.success("✅ Data loaded successfully!")
+
+df = st.session_state.df
 
 # Drop YEAR_MONTH Column (if exists)
 if "YEAR_MONTH" in df.columns:
