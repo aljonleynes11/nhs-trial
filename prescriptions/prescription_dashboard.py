@@ -1,39 +1,21 @@
 import streamlit as st
 import pandas as pd
-import glob
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
-import os  
 
 # 📊 NHS Prescription Data Dashboard
 st.title("📊 NHS Dec 2024 Prescription Data Dashboard")
 
-# Debugging: Show Current Directory & Available Files
-st.subheader("🛠 Debugging Info")
-current_dir = os.getcwd()
-st.write("📂 Current Directory:", current_dir)
-
-# List files in the directory
-# all_files = os.listdir(current_dir)
-# st.write("📂 Files in Directory:", all_files)
-
-# 🔍 Search for Prescription CSV Files
-data_files = glob.glob(os.path.join(current_dir, "prescription_cardio_and_diabetes_final.csv"))
-st.write("🔍 Found CSV Files:", data_files)
-
-# Handle No Files Found
-if not data_files:
-    st.error("🚨 No data files found! Ensure the CSV files are in the correct directory.")
+# 🔹 Manual File Upload
+uploaded_file = st.file_uploader("📂 Upload a CSV File", type="csv")
+if uploaded_file is None:
+    st.warning("🚨 Please upload a CSV file to proceed.")
     st.stop()
 
-# ✅ Load & Merge CSV Files
-try:
-    df_list = [pd.read_csv(file) for file in data_files]
-    df = pd.concat(df_list, ignore_index=True)
-except Exception as e:
-    st.error(f"❌ Error reading CSV files: {e}")
-    st.stop()
+# ✅ Load Data
+df = pd.read_csv(uploaded_file)
+st.success("✅ File uploaded successfully!")
 
 # Drop YEAR_MONTH Column (if exists)
 if "YEAR_MONTH" in df.columns:
@@ -47,27 +29,17 @@ st.write(df.head())
 if "BNF_SECTION_CODE" in df.columns:
     st.subheader("📌 Filter Data by BNF Section")
 
-    # Generate Section Mapping
     unique_sections = df["BNF_SECTION_CODE"].dropna().unique()
     section_mapping = {str(int(code)): f"Section {int(code)}" for code in unique_sections}
 
-    # User Selection
     section_choice = st.selectbox("Select BNF Section:", ["All"] + list(section_mapping.values()))
 
-    # Apply Filter
     df_filtered = df[df["BNF_SECTION_CODE"] == int([k for k, v in section_mapping.items() if v == section_choice][0])] if section_choice != "All" else df
 
-    # 📄 Show Filtered Data
     st.subheader("📄 Filtered Data")
     st.write(df_filtered.head())
 
-    # 📥 Download Button
-    st.download_button(
-        label="📥 Download Filtered Data",
-        data=df_filtered.to_csv(index=False),
-        file_name="filtered_nhs_data.csv",
-        mime="text/csv"
-    )
+    st.download_button("📥 Download Filtered Data", data=df_filtered.to_csv(index=False), file_name="filtered_nhs_data.csv", mime="text/csv")
 
 # 🌍 Top 10 Regions by Prescriptions
 if "REGION_NAME" in df_filtered.columns:
@@ -76,7 +48,7 @@ if "REGION_NAME" in df_filtered.columns:
     top_regions.rename(columns={"NIC": "Net Ingredient Cost", "ITEMS": "Number Of Prescription Items Dispensed"}, inplace=True)
 
     st.write(top_regions)
-    
+
     fig, ax = plt.subplots(figsize=(10, 5))
     sns.barplot(x=top_regions["Number Of Prescription Items Dispensed"], y=top_regions["REGION_NAME"], palette="Reds_r", ax=ax)
     ax.set_xlabel("Total Items Dispensed")
