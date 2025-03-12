@@ -48,7 +48,7 @@ if "BNF_SECTION_CODE" in df.columns:
 if "REGION_NAME" in df_filtered.columns:
     st.subheader("🌍 Top 10 Regions with Most Prescriptions")
     top_regions = df_filtered.groupby("REGION_NAME").agg({"NIC": "sum", "ITEMS": "sum"}).nlargest(10, "ITEMS").reset_index()
-    top_regions.rename(columns={"NIC": "Net Ingredient Cost (£)", "ITEMS": "Number Of Prescription Items Dispensed"}, inplace=True)
+    top_regions.rename(columns={"NIC": "Net Ingredient Cost", "ITEMS": "Number Of Prescription Items Dispensed"}, inplace=True)
 
     st.write(top_regions)
 
@@ -63,7 +63,7 @@ if "REGION_NAME" in df_filtered.columns:
 if "BNF_CHEMICAL_SUBSTANCE" in df_filtered.columns and "NIC" in df_filtered.columns and "ITEMS" in df_filtered.columns:
     st.subheader("📊 Grouped Data by BNF Chemical Substance")
     grouped_data = df_filtered.groupby("BNF_CHEMICAL_SUBSTANCE").agg({"NIC": "sum", "ITEMS": "sum"}).reset_index()
-    grouped_data.rename(columns={"NIC": "Net Ingredient Cost (£)", "ITEMS": "Number Of Prescription Items Dispensed"}, inplace=True)
+    grouped_data.rename(columns={"NIC": "Net Ingredient Cost", "ITEMS": "Number Of Prescription Items Dispensed"}, inplace=True)
 
     st.write(grouped_data)
 
