@@ -1,0 +1,5 @@
+[theme]
+primaryColor = "#4CADE4"  # Light blue color
+backgroundColor = "#000000"  # White background
+secondaryBackgroundColor = "#262C2B"
+textColor = "#FFFFFF"  # Black text
