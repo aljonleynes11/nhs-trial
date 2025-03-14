@@ -5,3 +5,5 @@ plotly
 streamlit
 glob2
 wordcloud
+openai
+requests
