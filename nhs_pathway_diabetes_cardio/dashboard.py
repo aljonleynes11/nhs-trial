@@ -12,13 +12,12 @@ import requests
 
 # Set page config for better UI
 st.set_page_config(
-    page_title="NHS Pathway Analysis",
+    page_title=" HCP Research Tool",
     page_icon="🏥",
 
 )
 
-
-st.title("🏥 NHS Pathway Analysis Dashboard")
+st.title("🏥 HCP Research Tool")
 
 # Configure OpenAI
 openai.api_key = st.secrets["openai"]["api_key"]
@@ -100,27 +99,17 @@ excluded_countries = [
     'Finland', 'Finnish',
 ]
 
-# Define relevant terms for each category
-diabetes_terms = ['diabetes', 'diabetic', 'insulin', 'blood sugar', 'glucose', 'type 1', 'type 2', 'hba1c', 'diabetic ketoacidosis']
-cardio_terms = ['cardio', 'cardiovascular', 'heart', 'hypertension', 'blood pressure', 'cholesterol', 'stroke', 'myocardial', 'angina', 'arrhythmia']
-
-# Common medical terms to track
-medical_terms = [
-    'treatment', 'diagnosis', 'symptoms', 'patient', 'clinical', 'therapy', 'medicine',
-    'disease', 'condition', 'infection', 'injury', 'surgery', 'procedure', 'rehabilitation',
-    'prevention', 'management', 'care', 'health', 'medical', 'hospital', 'clinic',
-    'doctor', 'nurse', 'specialist', 'consultant', 'prescription', 'medication', 'drug',
-    'vaccine', 'test', 'examination', 'assessment', 'monitoring', 'follow-up', 'referral',
-    'emergency', 'acute', 'chronic', 'severe', 'mild', 'moderate', 'risk', 'complication'
-]
 
 
-
-def generate_insights(prompt, data_sample):
+def generate_insights(prompt, data_sample, user_keywords):
+    print(user_keywords)
+    print(prompt)
     client = openai.OpenAI(api_key=openai.api_key)
    
     prompt = f"""
     {current_prompt}
+    
+    User Keywords: {user_keywords}
     
     Dataset Sample:
     {data_sample}
@@ -188,32 +177,41 @@ try:
         'ICB', 'ICBs', 'Integrated Care Board'
     ]
     
+    
+    st.write("### 🔑 Enter keywords (comma-separated)")
+    user_keywords = st.text_area(
+        "",
+        help="Provide keywords to filter the content. For example: diabetes, heart disease.",
+        value="diabetes, heart disease",
+        key="key_editor",
+    )
+
     # Filter to include only UK and Ireland related content
     uk_ire_pattern = '|'.join(uk_ire_terms)
     uk_ire_mask = df['content'].str.contains(uk_ire_pattern, case=False, na=False)
     df = df[uk_ire_mask]
     
     # Filter for pathway-related terms (case insensitive)
-    pathway_terms = ['pathway', 'path', 'route', 'track', 'course', 'roadmap']
+    pathway_terms = user_keywords.split(',')
     pathway_mask = df['title'].str.contains('|'.join(pathway_terms), case=False, na=False) | \
                   df['content'].str.contains('|'.join(pathway_terms), case=False, na=False)
     filtered_df = df[pathway_mask]
     
     # Remove duplicates based on content
     filtered_df = filtered_df.drop_duplicates(subset=['content'])
+    placeholder = st.empty()  # Create a placeholder
+    show_all = placeholder.dataframe(filtered_df, use_container_width=True, hide_index=True)
 
+    # Hide the dataframe by clearing the placeholder
+    placeholder.empty()
     
-    with st.expander("🛣️ Pathway-related entries", expanded=False):  # expanded=False means minimized by default
-        # st.write(f"{len(filtered_df)} found. UK/IRE only.")
-        show_all = st.checkbox("Show all entries", value=False)
-        if show_all:
-            st.dataframe(df)
-        else:
-            st.dataframe(filtered_df)
     
     # Count occurrences of terms in content
     # Add OpenAI Insights section
-    st.write("### 🤖 AI-Powered Clinical Pathway Analysis")
+
+
+    
+    st.write("### 🤖 Enter Prompt")
     
     # Add prompt configuration section right before the generate button
     with st.expander("⚙️ Analysis Prompt Configuration", expanded=True):
@@ -227,7 +225,7 @@ try:
             value=st.session_state.original_prompt,
             height=500,
             key="prompt_editor",
-            help="Modify this prompt to change how the AI analyzes the pathway content. Click outside the textbox to save changes."
+            help="Modify this prompt to change how the AI analyzes the data content. Click outside the textbox to save changes."
         )
         
         # Show the "Update Prompt" button only if the prompt has changed
@@ -236,11 +234,16 @@ try:
                 update_prompt_api(current_prompt)
                 st.session_state.original_prompt = current_prompt  # Update the session state
                 st.success("Prompt updated successfully.")
+        
+        # Update the session state when the prompt is changed
+        st.session_state.original_prompt = current_prompt  # Ensure session state is updated
     
-    # Add a button to generate insights
+    
+
+    # Update the button to generate insights to include user keywords
     if st.button("🔍 Generate Insights", type="primary", use_container_width=True):
-        st.write("Generating insights...") 
-        with st.spinner("Analyzing clinical pathways and generating insights..."):
+        st.write("") 
+        with st.spinner("Analyzing keywords and generating insights..."):
             # Check if the "Show all entries" checkbox is checked
             if show_all:
                 data_sample_df = df
@@ -251,7 +254,7 @@ try:
                 f"Title: {row['title']}\nContent: {row['content']}\n"
                 for _, row in data_sample_df.head(5).iterrows()
             ])
-            insights = generate_insights(prompt, data_sample)
+            insights = generate_insights(prompt, data_sample, user_keywords)  # Pass user keywords
             st.write(insights)
 
     def count_terms(text, terms):
@@ -260,77 +263,6 @@ try:
         text = text.lower()
         return sum(1 for term in terms if term.lower() in text)
     
-    # # Calculate counts for each category
-    # diabetes_counts = filtered_df['content'].apply(lambda x: count_terms(x, diabetes_terms))
-    # cardio_counts = filtered_df['content'].apply(lambda x: count_terms(x, cardio_terms))
-    
-    # # Create bar chart
-    # fig, ax = plt.subplots(figsize=(10, 6))
-    # categories = ['Diabetes-related', 'Cardiovascular-related']
-    # counts = [diabetes_counts.sum(), cardio_counts.sum()]
-    
-    # bars = ax.bar(categories, counts)
-    # ax.set_title('📊 Frequency of Diabetes and Cardiovascular Terms')
-    # ax.set_ylabel('Number of Occurrences')
-    
-    # # Add value labels on top of bars
-    # for bar in bars:
-    #     height = bar.get_height()
-    #     ax.text(bar.get_x() + bar.get_width()/2., height,
-    #             f'{int(height)}',
-    #             ha='center', va='bottom')
-    
-    # st.write("### 🔍 Term Frequency Analysis")
-    # st.pyplot(fig)
-    
-    # # Count medical terms
-    # medical_counts = {}
-    # for term in medical_terms:
-    #     count = filtered_df['content'].apply(lambda x: count_terms(x, [term])).sum()
-    #     medical_counts[term] = count
-    
-    # # Sort terms by frequency and get top 10
-    # top_terms = dict(sorted(medical_counts.items(), key=lambda x: x[1], reverse=True)[:10])
-    
-    # # Create bar chart for top medical terms
-    # fig2, ax2 = plt.subplots(figsize=(10, 6))
-    # bars2 = ax2.bar(range(len(top_terms)), list(top_terms.values()))
-    # ax2.set_title('🏥 Top 10 Most Frequent Medical Terms')
-    # ax2.set_ylabel('Number of Occurrences')
-    # ax2.set_xticks(range(len(top_terms)))
-    # ax2.set_xticklabels(list(top_terms.keys()), rotation=45, ha='right')
-    
-    # # Add value labels on top of bars
-    # for bar in bars2:
-    #     height = bar.get_height()
-    #     ax2.text(bar.get_x() + bar.get_width()/2., height,
-    #             f'{int(height)}',
-    #             ha='center', va='bottom')
-    
-    # st.write("### 💊 Medical Terms Analysis")
-    # st.pyplot(fig2)
-    
-    # # Create word cloud
-    # st.write("### 🌟 Word Cloud Analysis")
-    # # Combine all content
-    # text = ' '.join(filtered_df['content'].dropna().astype(str))
-    
-    # # Create word cloud with built-in stopwords
-    # wordcloud = WordCloud(
-    #     width=1200, 
-    #     height=800, 
-    #     background_color='white',
-    #     stopwords=STOPWORDS,
-    #     min_word_length=3
-    # ).generate(text)
-    
-    # # Display word cloud
-    # fig3, ax3 = plt.subplots(figsize=(15, 10))
-    # ax3.imshow(wordcloud, interpolation='bilinear')
-    # ax3.axis('off')
-    # st.pyplot(fig3)
-    
-
     
 except Exception as e:
     st.error(f"❌ Failed to load data: {e}")
