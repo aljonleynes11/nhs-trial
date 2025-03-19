@@ -99,31 +99,26 @@ excluded_countries = [
     'Finland', 'Finnish',
 ]
 
-
-
-def generate_insights(prompt, data_sample, user_keywords):
-    print(user_keywords)
-    print(prompt)
+def generate_related_terms(user_keywords):
     client = openai.OpenAI(api_key=openai.api_key)
    
     prompt = f"""
-    {current_prompt}
-    
     User Keywords: {user_keywords}
-    
-    Dataset Sample:
-    {data_sample}
+    Expand the search to include all related terms.
+    Return only a comma-separated list of words, with no explanations.
     """
 
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a data analysis expert."},
+            {"role": "system", "content": "You are a data expert assistant."},
             {"role": "user", "content": prompt}
         ]
     )
-    
-    return response.choices[0].message.content
+
+    # Ensuring only a clean comma-separated string is returned
+    return response.choices[0].message.content.strip()
+
 
 def get_auth_header():
     credentials = f"{st.secrets.api_credentials.username}:{st.secrets.api_credentials.password}"
@@ -159,8 +154,35 @@ def update_prompt_api(new_prompt):
     except requests.exceptions.RequestException as e:
         st.error(f"Failed to update prompt: {str(e)}")
 
+def generate_insights(prompt, data_sample, user_keywords):
+    generated_keywords = st.session_state.get('generated_keywords', user_keywords)
+    print(generated_keywords)
+    client = openai.OpenAI(api_key=openai.api_key)
+   
+    prompt = f"""
+    {current_prompt}
+    
+    User Keywords: {generated_keywords}
+    From this, please expand the search to include all related terms.
+    
+    Dataset Sample:
+    {data_sample}
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are a data analysis expert."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    
+    return response.choices[0].message.content
+
+
 try:
     # Add data loading indicator
+    st.session_state.generated_keywords = st.session_state.get('generated_keywords', 'diabetes, heart disease')
     with st.spinner("📊 Loading data..."):
         df = pd.read_csv(sheet_url)
     prompt = fetch_prompts_from_api()
@@ -186,24 +208,36 @@ try:
         key="key_editor",
     )
 
+    if st.button("🔍 Apply Keywords", type="primary", use_container_width=True):
+        with st.spinner("Generating related terms..."):
+            new_keywords = generate_related_terms(user_keywords)
+            st.session_state.generated_keywords = new_keywords
+            st.success(f"Related keywords generated \n\n {new_keywords}")
+
+
     # Filter to include only UK and Ireland related content
     uk_ire_pattern = '|'.join(uk_ire_terms)
     uk_ire_mask = df['content'].str.contains(uk_ire_pattern, case=False, na=False)
     df = df[uk_ire_mask]
     
     # Filter for pathway-related terms (case insensitive)
-    pathway_terms = user_keywords.split(',')
+    pathway_terms = st.session_state.generated_keywords.split(',')
     pathway_mask = df['title'].str.contains('|'.join(pathway_terms), case=False, na=False) | \
                   df['content'].str.contains('|'.join(pathway_terms), case=False, na=False)
     filtered_df = df[pathway_mask]
     
     # Remove duplicates based on content
     filtered_df = filtered_df.drop_duplicates(subset=['content'])
-    placeholder = st.empty()  # Create a placeholder
-    show_all = placeholder.dataframe(filtered_df, use_container_width=True, hide_index=True)
+    
+    st.write("### 📊 Data Set")
 
-    # Hide the dataframe by clearing the placeholder
-    placeholder.empty()
+    with st.expander("📂 Show All Entries", expanded=False):
+        show_all = st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+
+    # placeholder = st.empty()  # Create a placeholder
+
+    # # Hide the dataframe by clearing the placeholder
+    # placeholder.empty()
     
     
     # Count occurrences of terms in content
@@ -256,12 +290,6 @@ try:
             ])
             insights = generate_insights(prompt, data_sample, user_keywords)  # Pass user keywords
             st.write(insights)
-
-    def count_terms(text, terms):
-        if pd.isna(text):
-            return 0
-        text = text.lower()
-        return sum(1 for term in terms if term.lower() in text)
     
     
 except Exception as e:
