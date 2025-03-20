@@ -185,7 +185,13 @@ try:
     st.session_state.generated_keywords = st.session_state.get('generated_keywords', 'diabetes, heart disease')
     with st.spinner("📊 Loading data..."):
         df = pd.read_csv(sheet_url)
-    prompt = fetch_prompts_from_api()
+    prompt = f"""Analyze the provided dataset to identify discussions that resemble a doctor talking about current clinical pathways. Extract key themes, challenges, and insights relevant to NHS treatment protocols, prescribing practices, and patient management."
+    Key Objectives:
+    1. Identify Clinical Pathway Mentions – Look for discussions about NHS treatment protocols, patient flow, and prescribing guidelines.
+    2. Extract Pain Points & Challenges – Highlight frustrations, bottlenecks, and barriers in implementing guidelines.
+    3. Track Pharma-Relevant Insights – Identify mentions of specific medications, drug access issues, or unmet needs in treatment.
+    4. Suggest Implementation Strategies – Provide recommendations on how these insights can be used for pharma marketing, engagement, or strategy development.
+    """
     # Define UK and Ireland related terms
     uk_ire_terms = [
         'UK', 'U.K.', 'United Kingdom', 
@@ -250,28 +256,15 @@ try:
     # Add prompt configuration section right before the generate button
     with st.expander("⚙️ Analysis Prompt Configuration", expanded=True):
 
-        # Initialize session state for the prompt if it doesn't exist
-        if "original_prompt" not in st.session_state:
-            st.session_state.original_prompt = prompt
+       
 
         current_prompt = st.text_area(
             "Analysis prompt:",
-            value=st.session_state.original_prompt,
+            value=prompt,
             height=500,
             key="prompt_editor",
             help="Modify this prompt to change how the AI analyzes the data content. Click outside the textbox to save changes."
         )
-        
-        # Show the "Update Prompt" button only if the prompt has changed
-        if current_prompt != st.session_state.original_prompt:
-            if st.button("Update Prompt", type="primary", use_container_width=True):
-                update_prompt_api(current_prompt)
-                st.session_state.original_prompt = current_prompt  # Update the session state
-                st.success("Prompt updated successfully.")
-        
-        # Update the session state when the prompt is changed
-        st.session_state.original_prompt = current_prompt  # Ensure session state is updated
-    
     
 
     # Update the button to generate insights to include user keywords
@@ -290,7 +283,7 @@ try:
             ])
             insights = generate_insights(prompt, data_sample, user_keywords)  # Pass user keywords
             st.write(insights)
-    
+
     
 except Exception as e:
     st.error(f"❌ Failed to load data: {e}")
