@@ -1,34 +1,56 @@
-# Social Media Filter Dashboard
+# HCP Research Tool
 
-A Streamlit application that allows filtering and analyzing content from different social media platforms (LinkedIn, Reddit, Twitter).
+A Streamlit application for analyzing healthcare professional (HCP) content across various social media platforms.
+
+## API Endpoints Used
+
+This application uses the following RapidAPI endpoints:
+
+1. LinkedIn API
+   - Endpoint: `linkedin-api8.p.rapidapi.com`
+   - Documentation: [LinkedIn API on RapidAPI](https://rapidapi.com/rockapis-rockapis-default/api/linkedin-api8)
+
+2. Twitter API
+   - Endpoint: `twitter154.p.rapidapi.com`
+   - Documentation: [Twitter API on RapidAPI](https://rapidapi.com/omarmhaimdat/api/twitter154)
+
+3. Reddit API
+   - Endpoint: `reddit-scraper2.p.rapidapi.com`
+   - Documentation: [Reddit API on RapidAPI](https://rapidapi.com/fkal094tiokg09w3vi095i/api/reddit-scraper2)
+
+## Setup Instructions
+
+1. Clone this repository
+2. Install required packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Create a `.streamlit/secrets.toml` file with your API keys:
+   ```toml
+   [rapidapi]
+   key = "your-rapidapi-key"
+
+   [openai]
+   api_key = "your-openai-api-key"
+
+   [webhook]
+   url = "your-webhook-url"
+   username = "your-webhook-username"
+   password = "your-webhook-password"
+   ```
+4. Run the application:
+   ```bash
+   streamlit run app.py
+   ```
 
 ## Features
 
-- Filter posts by social media platform (LinkedIn, Reddit, Twitter)
-- Date range selection
-- Minimum engagement filter
-- Display of engagement metrics
-- Interactive data visualization
+- Search and filter content from LinkedIn, Twitter, and Reddit
+- Analyze healthcare professional discussions
+- View engagement metrics and visualizations
+- AI-powered topic analysis
+- Export data to Google Sheets
 
-## Installation
+## Note
 
-1. Clone this repository
-2. Install the required dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-## Usage
-
-Run the Streamlit application:
-
-```bash
-streamlit run app.py
-```
-
-The application will open in your default web browser at http://localhost:8501.
-
-## Data
-
-The application currently uses mock data for demonstration purposes. To use real data, update the `generate_mock_data()` function in `app.py` with your data source. 
+You'll need to subscribe to the respective RapidAPI endpoints to get API keys. Each endpoint has its own pricing and subscription options. 

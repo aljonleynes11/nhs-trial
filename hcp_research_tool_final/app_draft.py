@@ -5,10 +5,9 @@ import json
 import requests
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-import gspread
-from google.oauth2 import service_account
 import os
 import openai  # Add OpenAI import
+import time
 
 # Set page configuration
 st.set_page_config(
@@ -82,8 +81,8 @@ if platform == "LinkedIn":
 def load_big_data_from_sheet():
     try:
         with st.spinner("Loading big data from Google Sheet..."):
-            # Get data from source sheet
-            sheet_url = "https://docs.google.com/spreadsheets/d/1hBVxmvpAngWPmgC9cAKnmpO6uweD3TRpvDPFXoh8eZw/edit?gid=0"
+            # Get sheet URL from secrets
+            sheet_url = st.secrets["gsheets"]["sheet_url"]
             sheet_url = sheet_url.replace('/edit?gid=0', '/export?format=csv')
             df = pd.read_csv(sheet_url)
             
@@ -549,7 +548,8 @@ def get_reddit_data(keyword="healthcare", sort="RELEVANCE", min_engagement=10, t
 def load_mock_data_from_sheet():
     try:
         with st.spinner("Loading test data from Google Sheet..."):
-            sheet_url = "https://docs.google.com/spreadsheets/d/1g_jOglUhuARGoDFLeHG0jNAXCFMF7Z5JIFZS_WoFOk8/edit?usp=sharing"
+            # Get mock sheet URL from secrets
+            sheet_url = st.secrets["gsheets"]["mock_sheet_url"]
             sheet_url = sheet_url.replace('/edit?usp=sharing', '/export?format=csv')
             df = pd.read_csv(sheet_url)
             
@@ -799,76 +799,133 @@ def display_posts(df):
     st.header("Posts")
     
     if not df.empty:
-        for i, row in df.iterrows():
-            with st.container():
-                col1, col2 = st.columns([1, 4])
-                
-                with col1:
-                    # Display platform icon or logo
-                    if row["Platform"] == "LinkedIn":
-                        st.image("https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg", width=50)
-                    elif row["Platform"] == "Twitter":
-                        st.image("https://about.twitter.com/content/dam/about-twitter/x/brand-toolkit/logo-black.png.twimg.1920.png", width=50)
-                    elif row["Platform"] == "Reddit":
-                        st.image("https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png", width=50)
-                    elif row["Platform"] == "External Source":
-                        st.image("https://cdn-icons-png.flaticon.com/512/2906/2906274.png", width=50)
+        # Create a single expander for all posts
+        with st.expander("View All Posts", expanded=True):
+            # Set fixed posts per page to 20
+            posts_per_page = 20
+            
+            # Calculate total pages
+            total_posts = len(df)
+            total_pages = (total_posts + posts_per_page - 1) // posts_per_page
+            
+            # Get current page from session state
+            current_page = st.session_state.get('current_page', 1)
+            
+            # Calculate start and end indices for current page
+            start_idx = (current_page - 1) * posts_per_page
+            end_idx = min(start_idx + posts_per_page, total_posts)
+            
+            # Display posts for current page
+            for i, row in df.iloc[start_idx:end_idx].iterrows():
+                with st.container():
+                    col1, col2 = st.columns([1, 4])
                     
-                    # Display engagement metrics
-                    st.metric("Engagement", row["Engagement"])
-                
-                with col2:
-                    # Author and date
-                    if row["Platform"] == "Reddit" and "Subreddit" in row:
-                        st.markdown(f"**{row['Author']}** in r/{row['Subreddit']} • {row['Date'].strftime('%Y-%m-%d')}")
-                    else:
-                        st.markdown(f"**{row['Author']}** • {row['Date'].strftime('%Y-%m-%d')}")
-                    
-                    # Post content with character limit and expandable view
-                    post_content = row["Post"]
-                    char_limit = 300
-                    
-                    # If post is longer than character limit, show truncated version with "View more" option
-                    if len(str(post_content)) > char_limit:
-                        # Display truncated content
-                        st.write(f"{str(post_content)[:char_limit]}...")
+                    with col1:
+                        # Display platform icon or logo
+                        if row["Platform"] == "LinkedIn":
+                            st.image("https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg", width=50)
+                        elif row["Platform"] == "Twitter":
+                            st.image("https://about.twitter.com/content/dam/about-twitter/x/brand-toolkit/logo-black.png.twimg.1920.png", width=50)
+                        elif row["Platform"] == "Reddit":
+                            st.image("https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png", width=50)
+                        elif row["Platform"] == "External Source":
+                            st.image("https://cdn-icons-png.flaticon.com/512/2906/2906274.png", width=50)
                         
-                        # Use HTML details tag for expandable content
-                        details_html = f"""
-                        <details>
-                            <summary style="cursor: pointer; color: #1E88E5; margin-bottom: 20px;">View full post</summary>
-                            <div style="padding: 10px; border-left: 2px solid #1E88E5; margin-top: 8px;">
-                                {str(post_content).replace('"', '&quot;').replace('\n', '<br>')}
-                            </div>
-                        </details>
-                        """
-                        st.markdown(details_html, unsafe_allow_html=True)
-                    else:
-                        # Display short posts directly
-                        st.write(post_content)
+                        # Display engagement metrics
+                        st.metric("Engagement", row["Engagement"])
                     
-                    # Display raw_content if available for Big Data
-                    if row["Platform"] == "External Source" and "raw_content" in row and row["raw_content"]:
-                        st.markdown("**Raw Content:**")
-                        raw_content = str(row["raw_content"])
-                        if len(raw_content) > char_limit:
-                            st.write(f"{raw_content[:char_limit]}...")
-                            st.expander("View full raw content").write(raw_content)
+                    with col2:
+                        # Author and date
+                        if row["Platform"] == "Reddit" and "Subreddit" in row:
+                            st.markdown(f"**{row['Author']}** in r/{row['Subreddit']} • {row['Date'].strftime('%Y-%m-%d')}")
                         else:
-                            st.write(raw_content)
+                            st.markdown(f"**{row['Author']}** • {row['Date'].strftime('%Y-%m-%d')}")
+                        
+                        # Post content with character limit and expandable view
+                        post_content = row["Post"]
+                        char_limit = 300
+                        
+                        # If post is longer than character limit, show truncated version with "View more" option
+                        if len(str(post_content)) > char_limit:
+                            # Display truncated content
+                            st.write(f"{str(post_content)[:char_limit]}...")
+                            
+                            # Use HTML details tag for expandable content
+                            details_html = f"""
+                            <details>
+                                <summary style="cursor: pointer; color: #1E88E5; margin-bottom: 20px;">View full post</summary>
+                                <div style="padding: 10px; border-left: 2px solid #1E88E5; margin-top: 8px;">
+                                    {str(post_content).replace('"', '&quot;').replace('\n', '<br>')}
+                                </div>
+                            </details>
+                            """
+                            st.markdown(details_html, unsafe_allow_html=True)
+                        else:
+                            # Display short posts directly
+                            st.write(post_content)
+                        
+                        # Display raw_content if available for Big Data
+                        if row["Platform"] == "External Source" and "raw_content" in row and row["raw_content"]:
+                            st.markdown("**Raw Content:**")
+                            raw_content = str(row["raw_content"])
+                            if len(raw_content) > char_limit:
+                                st.write(f"{raw_content[:char_limit]}...")
+                                st.expander("View full raw content").write(raw_content)
+                            else:
+                                st.write(raw_content)
+                        
+                        # Display media content for Reddit posts if available
+                        if row["Platform"] == "Reddit" and "ContentType" in row and "MediaURL" in row and row["MediaURL"]:
+                            if row["ContentType"] == "image":
+                                st.image(row["MediaURL"], use_container_width=True)
+                            elif row["ContentType"] == "video":
+                                st.video(row["MediaURL"])
+                        
+                        # If URL exists, make it clickable
+                        if "URL" in row and row["URL"]:
+                            st.markdown(f"[View Source]({row['URL']})")
                     
-                    # Display media content for Reddit posts if available
-                    if row["Platform"] == "Reddit" and "ContentType" in row and "MediaURL" in row and row["MediaURL"]:
-                        if row["ContentType"] == "image":
-                            st.image(row["MediaURL"], use_container_width=True)
-                        elif row["ContentType"] == "video":
-                            st.video(row["MediaURL"])
-                    
-                    # If URL exists, make it clickable
-                    if "URL" in row and row["URL"]:
-                        st.markdown(f"[View Source]({row['URL']})")
-                
-                st.divider()
+                    st.divider()
+            
+            # Add page navigation at the bottom with improved styling
+            st.markdown("""
+            <style>
+            .stButton {
+                display: flex;
+                width: 100%;
+            }
+            .stButton > button {
+                width: 100%;
+                padding: 0.5rem 1rem;
+            }
+            div[data-testid="column"] {
+                display: flex;
+                align-items: center;
+            }
+            div[data-testid="column"]:first-child {
+                justify-content: flex-start;
+            }
+            div[data-testid="column"]:nth-child(2) {
+                justify-content: center;
+            }
+            div[data-testid="column"]:last-child {
+                justify-content: flex-end;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3 = st.columns([1, 2, 1])
+            
+            with col1:
+                if st.button("Previous Page", disabled=current_page <= 1, key="prev_button", use_container_width=True):
+                    st.session_state.current_page = max(1, current_page - 1)
+            
+            with col2:
+                st.markdown(f"<div style='text-align: center; width: 100%;'>Page {current_page} of {total_pages}</div>", unsafe_allow_html=True)
+            
+            with col3:
+                if st.button("Next Page", disabled=current_page >= total_pages, key="next_button", use_container_width=True):
+                    st.session_state.current_page = min(total_pages, current_page + 1)
 
         # Also provide the traditional dataframe view if needed
         if st.checkbox("Show as table"):
@@ -882,10 +939,15 @@ def display_posts(df):
 
 # Display engagement metrics
 def display_metrics(df):
+    print(df)
     st.header("Engagement Metrics")
     if not df.empty:
-        # Create single metric - only show total posts
-        st.metric("Total Posts", len(df))
+        # Create metrics columns
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Posts", len(df))
+        with col2:
+            st.metric("Unique Authors", df["Author"].nunique())
         
         # Create a bar chart for engagement by platform
         if platform == "All":
@@ -893,6 +955,36 @@ def display_metrics(df):
             st.bar_chart(platform_stats.set_index("Platform"))
         else:
             st.bar_chart(df.set_index("Date")["Engagement"])
+            
+        # Add AI Analysis section
+        st.subheader("AI Topic Analysis")
+        
+        if (not df.empty):
+               # Add 5 second delay
+            time.sleep(5)
+            with st.spinner("Analyzing posts with AI..."):
+                # Prepare prompt for topic analysis
+                analysis_prompt = f"""
+                Analyze the following set of {len(df)} healthcare-related posts and provide:
+                1. Key Topics: Identify the main themes and topics being discussed
+                2. Sentiment Analysis: Overall sentiment and emotional tone
+                3. Key Insights: Extract valuable insights for healthcare professionals
+                4. Emerging Trends: Identify any emerging trends or patterns
+                5. Action Items: Suggest potential action items based on the analysis
+                
+                Focus on healthcare-specific insights and professional implications.
+                """
+                
+                # Get analysis from OpenAI
+                analysis_result = analyze_with_openai(df, analysis_prompt)
+                
+             
+                
+                # Display results in an expander
+                with st.expander("View Analysis Results", expanded=True):
+                    st.markdown(analysis_result)
+        elif df.empty:
+            st.warning("No posts available for analysis. Try adjusting your search filter.")
     else:
         st.info("No data available for the selected filters.")
 
@@ -949,4 +1041,4 @@ else:
             st.metric("Unique Authors", df["Author"].nunique())
 
 # Always display metrics at the bottom
-display_metrics(df) 
+display_metrics(df)
