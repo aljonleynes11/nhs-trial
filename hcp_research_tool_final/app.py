@@ -985,7 +985,7 @@ def display_metrics(df):
         # Add AI Analysis section
         st.subheader("AI Topic Analysis")
         
-        if(st.button("Generate AI Analysis")):
+        if(st.button("Generate AI Topic Analysis")):
             if (not df.empty):
             # Add 5 second delay
                 
