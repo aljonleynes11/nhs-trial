@@ -937,9 +937,35 @@ def display_posts(df):
     else:
         st.info("No data available for the selected filters.")
 
-# Display engagement metrics
+# Add this function before display_metrics
+def prepare_data_for_analysis(df, max_posts=50, max_chars_per_post=500):
+    """
+    Prepare data for OpenAI analysis by limiting the number of posts and characters per post.
+    """
+    try:
+        # Take only the top posts by engagement
+        df_sample = df.nlargest(max_posts, 'Engagement').copy()
+        
+        # Truncate post content
+        df_sample['Post'] = df_sample['Post'].apply(lambda x: str(x)[:max_chars_per_post] + '...' if len(str(x)) > max_chars_per_post else str(x))
+        
+        # Create a summary of the dataset
+        summary = {
+            'total_records': len(df),
+            'sample_size': len(df_sample),
+            'date_range': f"{df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}",
+            'platforms': df['Platform'].value_counts().to_dict(),
+            'avg_engagement': df['Engagement'].mean(),
+            'max_engagement': df['Engagement'].max()
+        }
+        
+        return df_sample, summary
+    except Exception as e:
+        st.error(f"Error preparing data for analysis: {str(e)}")
+        return pd.DataFrame(), {}
+
+# Update the display_metrics function
 def display_metrics(df):
-    print(df)
     st.header("Engagement Metrics")
     if not df.empty:
         # Create metrics columns
@@ -959,30 +985,41 @@ def display_metrics(df):
         # Add AI Analysis section
         st.subheader("AI Topic Analysis")
         
-        if (not df.empty):
-               # Add 5 second delay
-            time.sleep(5)
-            with st.spinner("Analyzing posts with AI..."):
-                # Prepare prompt for topic analysis
-                analysis_prompt = f"""
-                Analyze the following set of {len(df)} healthcare-related posts and provide:
-                1. Key Topics: Identify the main themes and topics being discussed
-                2. Sentiment Analysis: Overall sentiment and emotional tone
-                3. Key Insights: Extract valuable insights for healthcare professionals
-                4. Emerging Trends: Identify any emerging trends or patterns
-                5. Action Items: Suggest potential action items based on the analysis
+        if(st.button("Generate AI Topic Analysis")):
+            if (not df.empty):
+            # Add 5 second delay
                 
-                Focus on healthcare-specific insights and professional implications.
-                """
-                
-                # Get analysis from OpenAI
-                analysis_result = analyze_with_openai(df, analysis_prompt)
-                
-             
-                
-                # Display results in an expander
-                with st.expander("View Analysis Results", expanded=True):
-                    st.markdown(analysis_result)
+                with st.spinner("Analyzing posts with AI..."):
+                    # Prepare data for analysis
+                    df_sample, summary = prepare_data_for_analysis(df)
+                    
+                    if not df_sample.empty:
+                        # Prepare prompt for topic analysis
+                        analysis_prompt = f"""
+                        Analyze the following set of {summary['sample_size']} healthcare-related posts (sampled from {summary['total_records']} total posts) and provide:
+                        1. Key Topics: Identify the main themes and topics being discussed
+                        2. Sentiment Analysis: Overall sentiment and emotional tone
+                        3. Key Insights: Extract valuable insights for healthcare professionals
+                        4. Emerging Trends: Identify any emerging trends or patterns
+                        5. Action Items: Suggest potential action items based on the analysis
+                        
+                        Dataset Summary:
+                        - Date Range: {summary['date_range']}
+                        - Platforms: {', '.join([f"{p} ({c})" for p, c in summary['platforms'].items()])}
+                        - Average Engagement: {summary['avg_engagement']:.2f}
+                        - Maximum Engagement: {summary['max_engagement']}
+                        
+                        Focus on healthcare-specific insights and professional implications.
+                        """
+                        
+                        # Get analysis from OpenAI
+                        analysis_result = analyze_with_openai(df_sample, analysis_prompt)
+                        
+                        # Display results in an expander
+                        with st.expander("View Analysis Results", expanded=True):
+                            st.markdown(analysis_result)
+            else:
+                st.warning("Could not prepare data for analysis. Please try again.")
         elif df.empty:
             st.warning("No posts available for analysis. Try adjusting your search filter.")
     else:

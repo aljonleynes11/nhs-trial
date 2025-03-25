@@ -760,6 +760,135 @@ elif platform == "Big Data":
     with col2:
         st.metric("Unique URLs", df["URL"].nunique())
     
+    # Add "What's New" section for past 7 days
+    st.header("What's New (Past 7 Days)")
+    
+    # Calculate date range
+    current_date = datetime.now()
+    seven_days_ago = current_date - relativedelta(days=7)
+    
+    # Filter posts from the past 7 days and ensure they don't exceed current date
+    recent_posts = df[
+        (df['Date'] >= seven_days_ago) & 
+        (df['Date'] <= current_date)
+    ].copy()
+    
+    if not recent_posts.empty:
+        # Sort by date in descending order
+        recent_posts = recent_posts.sort_values(by='Date', ascending=False)
+        
+        # Create a single expander for all recent posts
+        with st.expander("View Recent Posts", expanded=False):
+            # Set fixed posts per page to 10 for recent posts
+            posts_per_page = 10
+            
+            # Calculate total pages
+            total_posts = len(recent_posts)
+            total_pages = (total_posts + posts_per_page - 1) // posts_per_page
+            
+            # Get current page from session state
+            current_page = st.session_state.get('big_data_recent_current_page', 1)
+            
+            # Calculate start and end indices for current page
+            start_idx = (current_page - 1) * posts_per_page
+            end_idx = min(start_idx + posts_per_page, total_posts)
+            
+            # Display posts for current page
+            for i, post in recent_posts.iloc[start_idx:end_idx].iterrows():
+                with st.container():
+                    col1, col2 = st.columns([1, 4])
+                    
+                    with col1:
+                        # Display platform icon
+                        st.image("https://cdn-icons-png.flaticon.com/512/2906/2906274.png", width=30)
+                        
+                        # Display engagement metrics
+                        st.metric("Engagement", post["Engagement"])
+                    
+                    with col2:
+                        # Display post info in a more compact format
+                        st.markdown(f"**{post['Author']}** • {post['Date'].strftime('%Y-%m-%d %H:%M')}")
+                        
+                        # Post content with character limit and expandable view
+                        post_content = post["Post"]
+                        char_limit = 200
+                        
+                        # If post is longer than character limit, show truncated version with "View more" option
+                        if len(str(post_content)) > char_limit:
+                            # Display truncated content
+                            st.write(f"{str(post_content)[:char_limit]}...")
+                            
+                            # Use HTML details tag for expandable content
+                            details_html = f"""
+                            <details>
+                                <summary style="cursor: pointer; color: #1E88E5; margin-bottom: 20px;">View full post</summary>
+                                <div style="padding: 10px; border-left: 2px solid #1E88E5; margin-top: 8px;">
+                                    {str(post_content).replace('"', '&quot;').replace('\n', '<br>')}
+                                </div>
+                            </details>
+                            """
+                            st.markdown(details_html, unsafe_allow_html=True)
+                        else:
+                            # Display short posts directly
+                            st.write(post_content)
+                        
+                        # Display raw_content if available
+                        if "raw_content" in post and post["raw_content"]:
+                            st.markdown("**Raw Content:**")
+                            raw_content = str(post["raw_content"])
+                            if len(raw_content) > char_limit:
+                                st.write(f"{raw_content[:char_limit]}...")
+                                st.expander("View full raw content").write(raw_content)
+                            else:
+                                st.write(raw_content)
+                        
+                        if "URL" in post and post["URL"]:
+                            st.markdown(f"[View Source]({post['URL']})")
+                    
+                    st.divider()
+            
+            # Add page navigation at the bottom with improved styling
+            st.markdown("""
+            <style>
+            .stButton {
+                display: flex;
+                width: 100%;
+            }
+            .stButton > button {
+                width: 100%;
+                padding: 0.5rem 1rem;
+            }
+            div[data-testid="column"] {
+                display: flex;
+                align-items: center;
+            }
+            div[data-testid="column"]:first-child {
+                justify-content: flex-start;
+            }
+            div[data-testid="column"]:nth-child(2) {
+                justify-content: center;
+            }
+            div[data-testid="column"]:last-child {
+                justify-content: flex-end;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3 = st.columns([1, 2, 1])
+            
+            with col1:
+                if st.button("Previous Page", disabled=current_page <= 1, key="big_data_recent_prev_button", use_container_width=True):
+                    st.session_state.big_data_recent_current_page = max(1, current_page - 1)
+            
+            with col2:
+                st.markdown(f"<div style='text-align: center; width: 100%;'>Page {current_page} of {total_pages}</div>", unsafe_allow_html=True)
+            
+            with col3:
+                if st.button("Next Page", disabled=current_page >= total_pages, key="big_data_recent_next_button", use_container_width=True):
+                    st.session_state.big_data_recent_current_page = min(total_pages, current_page + 1)
+    else:
+        st.info("No new posts in the past 7 days.")
+    
     # Add AI analysis section
     st.header("AI Analysis")
     analysis_prompt = st.text_area(
@@ -790,6 +919,132 @@ else:
     else:
         df = df_all
         st.success(f"Successfully loaded {len(df)} posts from default dataset")
+        
+        # Add "What's New" section for past 7 days
+        st.header("What's New (Past 7 Days)")
+        
+        # Calculate date range
+        current_date = datetime.now()
+        seven_days_ago = current_date - relativedelta(days=7)
+        
+        # Filter posts from the past 7 days and ensure they don't exceed current date
+        recent_posts = df[
+            (df['Date'] >= seven_days_ago) & 
+            (df['Date'] <= current_date)
+        ].copy()
+        
+        if not recent_posts.empty:
+            # Sort by date in descending order
+            recent_posts = recent_posts.sort_values(by='Date', ascending=False)
+            
+            # Create a single expander for all recent posts
+            with st.expander("View Recent Posts", expanded=False):
+                # Set fixed posts per page to 10 for recent posts
+                posts_per_page = 10
+                
+                # Calculate total pages
+                total_posts = len(recent_posts)
+                total_pages = (total_posts + posts_per_page - 1) // posts_per_page
+                
+                # Get current page from session state
+                current_page = st.session_state.get('recent_current_page', 1)
+                
+                # Calculate start and end indices for current page
+                start_idx = (current_page - 1) * posts_per_page
+                end_idx = min(start_idx + posts_per_page, total_posts)
+                
+                # Display posts for current page
+                for i, post in recent_posts.iloc[start_idx:end_idx].iterrows():
+                    with st.container():
+                        col1, col2 = st.columns([1, 4])
+                        
+                        with col1:
+                            # Display platform icon
+                            if post["Platform"] == "LinkedIn":
+                                st.image("https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg", width=30)
+                            elif post["Platform"] == "Twitter":
+                                st.image("https://about.twitter.com/content/dam/about-twitter/x/brand-toolkit/logo-black.png.twimg.1920.png", width=30)
+                            elif post["Platform"] == "Reddit":
+                                st.image("https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png", width=30)
+                            elif post["Platform"] == "External Source":
+                                st.image("https://cdn-icons-png.flaticon.com/512/2906/2906274.png", width=30)
+                            
+                            # Display engagement metrics
+                            st.metric("Engagement", post["Engagement"])
+                        
+                        with col2:
+                            # Display post info in a more compact format
+                            st.markdown(f"**{post['Author']}** • {post['Date'].strftime('%Y-%m-%d %H:%M')} • {post['Platform']}")
+                            
+                            # Post content with character limit and expandable view
+                            post_content = post["Post"]
+                            char_limit = 200
+                            
+                            # If post is longer than character limit, show truncated version with "View more" option
+                            if len(str(post_content)) > char_limit:
+                                # Display truncated content
+                                st.write(f"{str(post_content)[:char_limit]}...")
+                                
+                                # Use HTML details tag for expandable content
+                                details_html = f"""
+                                <details>
+                                    <summary style="cursor: pointer; color: #1E88E5; margin-bottom: 20px;">View full post</summary>
+                                    <div style="padding: 10px; border-left: 2px solid #1E88E5; margin-top: 8px;">
+                                        {str(post_content).replace('"', '&quot;').replace('\n', '<br>')}
+                                    </div>
+                                </details>
+                                """
+                                st.markdown(details_html, unsafe_allow_html=True)
+                            else:
+                                # Display short posts directly
+                                st.write(post_content)
+                            
+                            if "URL" in post and post["URL"]:
+                                st.markdown(f"[View Source]({post['URL']})")
+                        
+                        st.divider()
+                
+                # Add page navigation at the bottom with improved styling
+                st.markdown("""
+                <style>
+                .stButton {
+                    display: flex;
+                    width: 100%;
+                }
+                .stButton > button {
+                    width: 100%;
+                    padding: 0.5rem 1rem;
+                }
+                div[data-testid="column"] {
+                    display: flex;
+                    align-items: center;
+                }
+                div[data-testid="column"]:first-child {
+                    justify-content: flex-start;
+                }
+                div[data-testid="column"]:nth-child(2) {
+                    justify-content: center;
+                }
+                div[data-testid="column"]:last-child {
+                    justify-content: flex-end;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                col1, col2, col3 = st.columns([1, 2, 1])
+                
+                with col1:
+                    if st.button("Previous Page", disabled=current_page <= 1, key="recent_prev_button", use_container_width=True):
+                        st.session_state.recent_current_page = max(1, current_page - 1)
+                
+                with col2:
+                    st.markdown(f"<div style='text-align: center; width: 100%;'>Page {current_page} of {total_pages}</div>", unsafe_allow_html=True)
+                
+                with col3:
+                    if st.button("Next Page", disabled=current_page >= total_pages, key="recent_next_button", use_container_width=True):
+                        st.session_state.recent_current_page = min(total_pages, current_page + 1)
+        else:
+            st.info("No new posts in the past 7 days.")
     
     # Sort by engagement in descending order
     df = df.sort_values(by="Engagement", ascending=False)
